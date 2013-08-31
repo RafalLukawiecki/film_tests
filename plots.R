@@ -1,3 +1,43 @@
+# Plot film test characteristic curves and calculate Kodak-style CI (Contrast Index)
+# Rafal Lukawiecki photo@rafal.net 2013-08-21
+
+Dd <- function(x, curve.model, log.e.offset=0) 
+  predict(curve.model, data.frame(He=c(x-log.e.offset)))[1]
+
+
+ci.equation <- function(x, curve.model, log.e.offset = 0) {
+  
+  D <- function(x) 
+    predict(curve.model, data.frame(He=c(x-log.e.offset)))[1]
+  
+  c(
+    F1 = (x[2] - x[1])^2 + D(x[2])^2 - 0.2^2,
+    F2 = (x[3] - x[2])^2 + (D(x[3]) - D(x[2]))^2 - 2^2,
+    F3 = (x[3] - x[1])^2 + D(x[3])^2 - 2.2^2
+  )
+  
+}
+
+
+contrast.index <- function(curve.model, log.e.offset = 0) {
+  
+  require(rootSolve)
+  
+  roots <- multiroot(f=ci.equation, start=c(0.85, 1, 2.63), 
+                     positive=TRUE, maxiter=1000, ctol=0.05, curve.model=curve.model, log.e.offset=log.e.offset)
+  CI.points <- data.frame(He=c(roots$root[2:3]) - log.e.offset)
+  CI.points$D <- predict(curve.model, CI.points[1])
+  
+  print(roots)
+  print(CI.points)
+  
+  return(
+    (CI.points$D[2] - CI.points$D[1]) / (CI.points$He[2] - CI.points$He[1])
+  )
+  
+}
+
+
 plot.film.test <- function(film.data, 
                            title = "HD Film Plot", 
                            sensitometry = "Tests", 
@@ -16,16 +56,13 @@ plot.film.test <- function(film.data,
   p <- ggplot(data=film.data, aes(x=He), environment=environment()) + 
     coord_equal() + 
     scale_x_continuous("rel log E", breaks=seq(0,4,0.30), minor_breaks = seq(0, 4, 0.10)) + 
-    scale_y_continuous("Density", breaks=seq(0,3,0.30), minor_breaks = seq(0, 4, 0.10)) + 
-    scale_colour_discrete(name=sensitometry, 
-                          breaks = names(film.data[2:ncol(film.data)]),
-                          labels = names(film.data[2:ncol(film.data)])) +
-    ggtitle(title)
+    scale_y_continuous("Density", breaks=seq(0,3,0.30), minor_breaks = seq(0, 4, 0.10))
   
   # Plot individual curves
   
   # Prepare smoothing data, over 50 point samples between the provided rel log E range 
   smooth.curves <- data.frame(He = seq(min(film.data$He), max(film.data$He), length=50))
+  CIs <- c()
 
   for(test in 2:ncol(film.data)) {
     
@@ -34,9 +71,12 @@ plot.film.test <- function(film.data,
     rel.log.e <- paste("He + ", log.e.offset[test-1])
     
     # Find and fit a smoothing linr
-    # smooth.fit <- loess(film.data[,test] ~ He, film.data, span=0.75)   # LOESS variant
+    #smooth.fit <- loess(film.data[,test] ~ He, film.data, span=0.75)   # LOESS variant
     smooth.fit <- lm(film.data[,test] ~ bs(He+log.e.offset[test-1], df = df), data = film.data)  # Bezier splines, note the default degrees of freedom
     smooth.curves <- cbind(smooth.curves, predict(smooth.fit, smooth.curves[1]))
+    
+    # Calculate CI for the curve, and store for now
+    CIs <- append(CIs, round(contrast.index(smooth.fit, log.e.offset[test-1]), 2))
    
     # Add the current curve to the plot
     p <- p + 
@@ -49,52 +89,22 @@ plot.film.test <- function(film.data,
                                                y=smooth.curves[test], 
                                                colour=paste('"', test.name,'"', sep="")))
   }
+
+  
+  p <- p + scale_colour_discrete(name=sensitometry, 
+                                 breaks = names(film.data[2:ncol(film.data)]),
+                                 labels = paste(names(film.data[2:ncol(film.data)]), CIs, sep=" CI=")) +
+    ggtitle(title)
+  
   
   print(p)
 }
 
-ci.equation <- function(x, curve.model, log.e.offset = 0) {
-  
-  D <- function(x) 
-    predict(curve.model, data.frame(He=c(x-log.e.offset)))[1]
-  
-  c(
-  F1 = (x[2] - x[1])^2 + D(x[2])^2 -0.2^2,
-  F2 = (x[3] - x[2])^2 + (D(x[3]) - D(x[2]))^2 - 2^2,
-  F3 = (x[3] - x[1])^2 + D(x[3])^2 - 2.2^2
-  )
-  
-}
+#print(contrast.index(d, 0.21))
 
-contrast.index <- function(curve.model, log.e.offset = 0) {
-  require(rootSolve)
-  
-  # Find the He where the curve just leaves the toe, at density 0.05
-  curve.points <- data.frame(He=seq(0, 1.5, length=50))
-  curve.points$D <- predict(curve.model, curve.points[1])
-  print(dim(curve.points))
-  He.min <- min(subset(curve.points, D >= 0.05 & D < 1)$He)
-  
-  print(He.min)
-  
-  roots <- multiroot(f=ci.equation, start=c(0.1, 0.11, 0.12), 
-                     positive=TRUE, maxiter=1000, ctol=0.01, curve.model=curve.model, log.e.offset=log.e.offset)
-  CI.points <- data.frame(He=c(roots$root[2:3]) - log.e.offset)
-  CI.points$D <- predict(curve.model, CI.points[1])
-  
-  print(roots)
-  print(CI.points)
-  
-  return(
-    (CI.points$D[2] - CI.points$D[1]) / (CI.points$He[2] - CI.points$He[1])
-  )
-}
+plot.film.test(min.delta, "Delta 100 4x5 XTOL 1:1 20˚C 10min Tray", "Exposure\nEseco SL-2", log.e.offset=c(0.21,0,0), df=5)
 
-print(contrast.index(d, 0.21))
-
-#plot.film.test(min.delta, "Delta 100 4x5 XTOL 1:1 20˚C 10min Tray", "Exposure\nEseco SL-2", log.e.offset=c(0.21,0,0))
-
-
+# $x [1] 0.8383949 1.0010792 2.6281244
 
 
 
