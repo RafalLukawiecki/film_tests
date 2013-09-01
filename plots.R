@@ -1,10 +1,10 @@
 # Plot film test characteristic curves and calculate Kodak-style CI (Contrast Index)
-# Rafal Lukawiecki photo@rafal.net 2013-08-21
+# (c) Rafal Lukawiecki photo@rafal.net 2013-08-21
 
 # Currently, the algorithm fails if it starts the search for a solution at a "wrong" starting point.
 # If CI values are not being computed (showing as NA), change the below starting point to a set of
 # different rel log E exposure values.
-starting.point = c(0.9, 1, 2)
+starting.point = c(0.95, 1, 2)
 
 # To use, call as below, providing your densitometer readings in the first parameter, as data frame, which must contain as the first
 # column, named "He" your relative log E values (from your sensitometer etc), starting at 0 and increasing towards the right.
@@ -26,8 +26,10 @@ starting.point = c(0.9, 1, 2)
 plot.film.test <- function(film.data, # data frame as described above
                            title = "HD Film Plot", # Title for the plot
                            sensitometry = "Tests",   # Title for the legend
+                           target.N.CIs=c(0.4, 0.5, 0.58, 0.7, 0.88), # Target CIs, will be drawn on CI/Dev plot and annotated as N-2,...
                            log.e.offset = NULL,  # Exposure offset vector, see above
-                           df=5  # Degrees of freedom for controlling how smooth (less) or fitted the Bezier spline ought to be
+                           df=5,  # Degrees of freedom for controlling how smooth (less) or fitted the Bezier spline ought to be
+                           dev.time.smoothing=2 # Order of the smoothing polynomial for the development time/CI chart (use 1 for straight line)
                            )
   {  
   
@@ -89,8 +91,30 @@ plot.film.test <- function(film.data, # data frame as described above
                                  labels = paste(names(film.data[2:ncol(film.data)]), CIs, sep=" CI=")) +
     ggtitle(title)
   
-  
   print(p)
+  
+  # If the columns represent development times, prepare a data frame of those times and corresponding CIs for a CI/dev plot.
+  # If the titles cannot be parsed as having numerical meaning, print a warning, and plot nothing.
+  dev.time <- sapply(names(film.data)[-1], function (x) as.numeric(unlist(strsplit(x, "[ \\.X\\-]"))[1]))
+  if(length(dev.time) > 2) {
+    if(any(is.na(dev.time)))
+      print("Cannot extract development times from column names to generate a CI/Dev plot. Rename all your columns so they start with a number of development minutes, e.g. '7 min'")
+    else {
+      CI.dev <- data.frame(dev.time=dev.time, CI=CIs)
+      dp <- ggplot(data=CI.dev, aes(x=dev.time, y=CI), environment=environment()) + 
+        #coord_equal() + 
+        scale_x_continuous("Dev Time", breaks=seq(0,120,5), minor_breaks=seq(0,120,1)) + 
+        scale_y_continuous("CI", breaks=seq(0,3,0.1), minor_breaks=seq(0,3,0.02)) +
+        geom_point() + 
+        stat_smooth(method="lm", formula=y~poly(x,dev.time.smoothing), se=F) +
+        geom_hline(yintercept=target.N.CIs, alpha=0.6, colour="blue", linetype="dashed") + 
+        annotate("text", x=max(dev.time), y=target.N.CIs + 0.02, 
+                 label=paste(c('N-2', 'N-1', 'N', 'N+1', 'N+2'), "(CI", target.N.CIs, ")"), size=3) +
+        ggtitle(paste(title, "Development Time/CI Chart", sep="\n"))
+        print(dp)
+    }
+  }
+
 }
 
 
@@ -138,5 +162,5 @@ ci.equation <- function(x, curve.model, log.e.offset = 0) {
   
 }
 
-plot.film.test(delta100.ddx1.4, "Delta 100 4x5 DDX 1+4 20˚C CombiPlan 30s/3inv.5s@30s", "Exposure\nEseco SL-2\nGreen x2 + x6", 
-               log.e.offset=c(0,.37,0,.34,0,.38,0,.33,0,.39), df=6)
+# plot.film.test(delta100.ddx1.4.x1, "Delta 100 4x5 DDX 1+4 20˚C CombiPlan 30s/3inv.5s@30s", "Exposure\nEseco SL-2\nGreen x2 + x6", 
+#             log.e.offset=c(0, .37, 0, .37, 0, .34, 0, .38, 0, .33, 0, .39), df=6)
