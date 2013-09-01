@@ -125,34 +125,13 @@ plot.film.test <- function(film.data, # data frame as described above
         geom_hline(yintercept=target.N.CIs, alpha=0.6, colour="blue", linetype="dashed") + 
         annotate("text", x=max(dev.time), y=target.N.CIs + 0.02, 
                  label=paste(c('N-2', 'N-1', 'N', 'N+1', 'N+2'), "(CI", target.N.CIs, ")"), size=3) +
-        + opts(legend.position = "none") 
         ggtitle(paste(title, "Development Time/CI Chart", sep="\n"))
-      
-      require(grid)
-      require(gtable)
-      
-      g1 <- ggplot_gtable(ggplot_build(p))
-      g2 <- ggplot_gtable(ggplot_build(dp))
-      
-      # overlap the panel of 2nd plot on that of 1st plot
-      pp <- c(subset(g1$layout, name == "panel", se = t:r))
-      g <- gtable_add_grob(g1, g2$grobs[[which(g2$layout$name == "panel")]], pp$t, 
-                           pp$l, pp$b, pp$l)
-      
-      ## what I dd is to plot a new viewports.
-      vp=viewport(x=0.25,y=1,height=0.5,width=0.5)
-      pushViewport(vp)
-      grid.draw(g)
-      upViewport()
-      
-      
-      #  print(dp)
-      return()
+        print(dp)
     }
   }
   
   print(p)
-  
+
 }
 
 
