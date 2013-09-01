@@ -8,14 +8,19 @@ starting.point = c(0.9, 1, 2)
 
 # To use, call as below, providing your densitometer readings in the first parameter, as data frame, which must contain as the first
 # column, named "He" your relative log E values (from your sensitometer etc), starting at 0 and increasing towards the right.
-# Every remaining column should contain density readings. Name those columns in a way that describes your test, eg. "11 min" etc.
+# Every remaining column should contain density readings. Readings can be absolute (ie. including FB+F) or relative, the code below
+# will subtract FB+F from each column automatically. Bear in mind this may influence your choice of "offset" if used.
+# Name those columns in a way that describes your test, eg. "11 min" etc.
+# If your data is in a CSV that contains column headers (the first must be called He), or another text file, 
+# use read.csv (or another read.table function) to put it in a data frame, for example:
+# delta100.ddx1.4 <- read.csv("delta100.ddx1.4.csv")
+
 # Optionally, provide a vector of exposure offsets as the log.e.offset parameter. This is used to indicate that a series of readings
 # in the corresponding column represents exposures greater by the value of the offset. This is useful if you want to take a second
 # sensitometric exposure which is larger, by that offset, to effectively compute a longer curve, without using a longer step tablet.
 
-plot.film.test(min.delta, "Delta 100 4x5 XTOL 1:1 20˚C 10min Tray", "Exposure\nEseco SL-2", log.e.offset=c(0.21,0,0), df=7)
-
-
+# plot.film.test(delta100.ddx1.4, "Delta 100 4x5 DDX 1+4 20˚C CombiPlan 30s/3inv.5s@30s", "Exposure\nEseco SL-2\nGreen x2 + x6", 
+#               log.e.offset=c(0,.21,0,.21,0,.21,0,.21,0,.21), df=7)
 
 # This is the main function, that plots the curves and computes the CIs
 plot.film.test <- function(film.data, # data frame as described above
@@ -29,6 +34,9 @@ plot.film.test <- function(film.data, # data frame as described above
   require(ggplot2)
   require(splines)
   
+  # Assume that the lowest recorded reading in each column is FB+F, substract it, column-wise, (He columns should starts at 0)
+  film.data <- as.data.frame(apply(film.data, 2, function (x) x-min(x[1])))
+  
   # If no log exposure offset vector provided, assume 0 offsets
   if(is.null(log.e.offset)) {
     log.e.offset <- rep(0, ncol(film.data)-1)
@@ -38,7 +46,7 @@ plot.film.test <- function(film.data, # data frame as described above
   p <- ggplot(data=film.data, aes(x=He), environment=environment()) + 
     coord_equal() + 
     scale_x_continuous("rel log E", breaks=seq(0,4,0.30), minor_breaks = seq(0, 4, 0.10)) + 
-    scale_y_continuous("Density", breaks=seq(0,3,0.30), minor_breaks = seq(0, 4, 0.10))
+    scale_y_continuous("Density", breaks=seq(0,4,0.30), minor_breaks = seq(0, 4, 0.10))
   
   # Plot individual curves
   
@@ -67,12 +75,12 @@ plot.film.test <- function(film.data, # data frame as described above
     p <- p + 
       
       # Plot the points
-      geom_point(aes_string(x=rel.log.e, y=test.name, colour=paste('"', test.name,'"', sep=""))) + 
-      
+      geom_point(aes_string(x=rel.log.e, y=film.data[test], colour=paste('"', test.name,'"', sep=""))) + 
+
       # Plot the smoothing line
       geom_line(data=smooth.curves, aes_string(x=paste(smooth.curves[1], "+", log.e.offset[test-1]) ,
                                                y=smooth.curves[test], 
-                                               colour=paste('"', test.name,'"', sep="")))
+                                               colour=paste('"', test.name,'"', sep="")), alpha=0.7, size=0.7)
   }
 
   
@@ -97,13 +105,14 @@ contrast.index <- function(curve.model, straight.line.coeff, log.e.offset = 0) {
   
   # TODO: Automatically vary the starting point if search fails, and try again?
   
+  
   roots <- nleqslv(x=starting.point, fn=ci.equation, curve.model=curve.model, log.e.offset=log.e.offset,
                    control=list(maxit=300))
   
   CI.points <- data.frame(He=c(roots$x[2:3]) - log.e.offset)
   CI.points$D <- predict(curve.model, CI.points[1])
   
-  if(roots$termcd == 1 & CI.points$He > 0 & CI.points$D > 0)
+  if(roots$termcd == 1 & all(CI.points$He > 0) & all(CI.points$D > 0))
     return((CI.points$D[2] - CI.points$D[1]) / (CI.points$He[2] - CI.points$He[1]))
   else {
     print("Error: Cannot compute CI for some or all curves. Consider changing the 'starting.point' as described in the source file comment.")
@@ -128,3 +137,6 @@ ci.equation <- function(x, curve.model, log.e.offset = 0) {
   )
   
 }
+
+plot.film.test(delta100.ddx1.4, "Delta 100 4x5 DDX 1+4 20˚C CombiPlan 30s/3inv.5s@30s", "Exposure\nEseco SL-2\nGreen x2 + x6", 
+               log.e.offset=c(0,.37,0,.34,0,.38,0,.33,0,.39), df=6)
