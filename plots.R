@@ -205,7 +205,7 @@ plot.paper.test <- function(paper.data, # data frame as described above
     scale_x_continuous("rel log H", breaks=seq(0,4,0.30), minor_breaks = seq(0, 4, 0.10)) + 
     scale_y_continuous("Density", breaks=seq(0,4,0.30), minor_breaks = seq(0, 4, 0.10))
   
-  # Plot individual curves
+  # Plot individual curves, calculate ISO-Rs for each curve.
   ISORs <- c()
   
   # Prepare smoothing data, over 50 point samples between the provided rel log E range 
@@ -268,40 +268,27 @@ plot.paper.test <- function(paper.data, # data frame as described above
   # Convert ISO-Rs to ISO Paper Grade Numbers
   ISOGrades <- ISORtoGrade(ISORs)
   
-  # Calculate the exposure adjustment from preceding curve as a time percentage adjustment
-  exp.adjustments <- round(- 
-                             (log.e.offset - c(0,log.e.offset[1:length(log.e.offset)-1]))*1000/3
-                           , 0)
-  exp.adjustments <- sapply(exp.adjustments, function (x) paste(ifelse(x >= 0, paste("+",x,sep=""), x), "% of above.", sep=""))
+  # Calculate the exposure adjustment from preceding curve as an f-stop adjustments in fractions of 1/12
+  exp.adjustments <- fractions(round(-(log.e.offset - c(0,log.e.offset[1:length(log.e.offset)-1])) / 0.025, 0) / 12, # 0.025 log density is 1/12 f-stop
+                              max.denominator=13)
   
   if(should.print.offsets) {
     p <- p + scale_colour_discrete(name=sensitometry, 
                                    breaks = names(paper.data[2:ncol(paper.data)]),
-                                   labels = paste(
-                                     paste(
-                                       paste(
-                                         paste(
-                                           names(paper.data[2:ncol(paper.data)]), round(log.e.offset, 2), sep=" Total exp offset "),
-                                         exp.adjustments, sep=". Exp "), 
-                                       ISORs, sep=" ISO-R="), 
-                                     ISOGrades, sep=" Grade=")) +
+                                   labels = paste(names(paper.data[2:ncol(paper.data)]), " Total exp offset ", round(log.e.offset, 2), " or ",
+                                                  ifelse(as.numeric(exp.adjustments) >= 0, "+", ""), exp.adjustments, " f of above.",
+                                                  " ISO-R=", ISORs, " Grade=", ISOGrades, sep="")) +
       ggtitle(title)
   } else {
     p <- p + scale_colour_discrete(name=sensitometry, 
                                    breaks = names(paper.data[2:ncol(paper.data)]),
-                                   labels = paste(
-                                     paste(
-                                           names(paper.data[2:ncol(paper.data)]), 
-                                       ISORs, sep=" ISO-R="), 
-                                     ISOGrades, sep=" Grade=")) +
+                                   labels = paste(names(paper.data[2:ncol(paper.data)]), " ISO-R=", ISORs, " Grade=", ISOGrades, sep="")) +
       ggtitle(title)
-    
   }
     
   print(p)
   
 }
-
 
 
 # Computes the Kodak-style CI Contrast Index
