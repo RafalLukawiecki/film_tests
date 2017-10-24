@@ -16,6 +16,8 @@ and pull requests are welcome.
 To see photography that has been improved thanks to this code, please [visit my site](http://rafal.net).
 
 ### How to use for film testing
+Everything you need is in the script file `plots.R`
+
 To use, call as below, providing your densitometer readings in the first parameter, as a data frame, which must contain as the first
 column named *He* your relative *log E* values (from your sensitometer etc), starting at 0 and increasing towards the right.
 Every remaining column should contain density readings. Readings can be absolute, ie. including *FB+Fog,* or relative, the code below
