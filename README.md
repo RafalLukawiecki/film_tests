@@ -1,5 +1,5 @@
-# Film and Paper Sensitometric Test Curve Calculator and Plotter
-## Calculate and plot film and paper characteristic curves and compute N, N+1 etc Zone System development times 
+# Film and Paper Sensitometric Test Curve Plotter
+## Automates computation of Zone System N, N+1 etc development times 
 
 The main purpose of this code is to help plot and calculate film and paper [sensitometric](https://en.wikipedia.org/wiki/Sensitometry) 
 characteristic (HD) curves. This code will also interpret the curves
