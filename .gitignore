@@ -2,6 +2,6 @@
 .Rhistory
 .RData
 .DS_Store
-*.png
 *.pdf
 *.xlsx
+*.png
