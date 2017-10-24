@@ -1,6 +1,6 @@
 # Plot film & paper test characteristic curves. Calculate Kodak-style CI (Contrast Index) for film curves, and plot zone system style (N, N+1) development times.
  
-# Copyright 2014 (c) Rafal Lukawiecki photo@rafal.net
+# Copyright 2017 (c) Rafal Lukawiecki photo@rafal.net
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -12,13 +12,15 @@
 # GNU General Public License for more details at:
 # http://www.gnu.org/licenses/gpl-2.0.html
 #
-# (Version 0.2 2013-09-01)
-# Version 0.3 2014-05-18, Paper plotting added, corrected film plot labels)
+# Version 0.2 2013-09-01, Initial.
+# Version 0.3 2014-05-18, Paper plotting added, corrected film plot labels.
+# Version 0.4 2016-08-22, ggplot bug fixed, added combined film plotting (combines two test series, one with and one without an offset into one).
+# Version 0.5 2017-10-24, Updated to use pacman to install package dependencies.
 
 # **** START HERE:
-# Currently, the algorithm fails if it starts the search for a solution at a "wrong" starting point.
+# Currently, the film CI calculation algorithm fails if it starts the search for a solution at a "wrong" starting point.
 # If CI values are not being computed (showing as NA), change the below starting point to a set of
-# different rel log E exposure values.
+# different rel log E exposure values. It is usually enough to nudge them a little by adding or subtracting 0.01 to each of those values.
 starting.point = c(0.95, 1, 2)
 
 # **** HOW TO USE FOR FILM:
@@ -29,8 +31,11 @@ starting.point = c(0.95, 1, 2)
 # Make sure to name your columns something like "7 min" etc. If you do, and there are at least 2 columns, this program will attempt to plot
 # a Dev Time/CI curve. It will also show, as lines on that plot, the target CIs for the different N-values.
 # If your data is in a CSV that contains column headers (the first must be called He), or another text file, 
-# use read.csv (or another read.table function) to put it in a data frame, for example:
+# use read.csv (or another read.table function) to put it in a data frame, for example, using provided sample readings
+#
 # delta100.ddx1.4 <- read.csv("delta100.ddx1.4.csv")
+# plot.film.test(delta100.ddx1.4, title = "Delta 100 4x5 DDX 1+4 20˚C CombiPlan\nAgitation 3 inversions at 30s intervals", 
+#                sensitometry = "Exposure\nEseco SL-2\nGreen x2 x6", log.e.offset=0.42, df=6, combined.pairwise.plot = TRUE)
 
 # Optionally, provide a vector of exposure offsets as the log.e.offset parameter. This is used to indicate that a series of readings
 # in the corresponding column represents exposures greater by the value of the offset. This is useful if you want to take a second
@@ -45,14 +50,16 @@ plot.film.test <- function(film.data, # data frame as described above
                            title = "HD Film Plot", # Title for the plot
                            sensitometry = "Tests",   # Title for the legend
                            target.N.CIs=c(0.4, 0.5, 0.58, 0.7, 0.88), # Target CIs, will be drawn on CI/Dev plot and annotated as N-2,...,N+2
-                           log.e.offset = NULL,  # Exposure offset vector, see above
+                           log.e.offset = NULL,  # Exposure offset vector, when providing pairs of series, for example exposed with a longer time, to simulate a longer step tablet
+                                                 # Please note that when combined.pairwise.plot is TRUE, then log.e.offset must be specified as a single > 0 value, not a vector.
                            df=6,  # Degrees of freedom for controlling how smooth (less) or fitted the Bezier spline ought to be
-                           dev.time.smoothing=2 # Order of the smoothing polynomial for the development time/CI chart (use 1 for straight line)
+                           dev.time.smoothing=2, # Order of the smoothing polynomial for the development time/CI chart (use 1 for straight line)
+                           combined.pairwise.plot = FALSE # If a vector of offsets is provided, should the neighboring pairs of series be combined together (TRUE) or plotted separately (FALSE)
                            )
   {  
   
-  require(ggplot2)
-  require(splines)
+  if (!require("pacman")) install.packages("pacman")
+  pacman::p_load(ggplot2, splines, dplyr, nleqslv)
   
   # Assume that the lowest recorded reading in each column is FB+F, and subtract it column-wise, (He column should start at 0)
   film.data <- as.data.frame(apply(film.data, 2, function (x) x-min(x[1])))
@@ -60,14 +67,31 @@ plot.film.test <- function(film.data, # data frame as described above
   # If no log exposure offset vector provided, assume 0 offsets
   if(is.null(log.e.offset)) {
     log.e.offset <- rep(0, ncol(film.data)-1)
+    combined.pairwise.plot <- FALSE   # Combined plots only make sense when an offset has been specified 
+  } else 
+    if(combined.pairwise.plot && (length(log.e.offset) != 1 || log.e.offset <= 0 || ((ncol(film.data)-1) %% 2) != 0)) 
+      stop("When combined.pairwise.plot is TRUE you need to provide a single, >0 value for log.e.offset parameter, and an even number of test series columns (ie. pairs).")
+
+  if(combined.pairwise.plot) {
+    # Combine, pair-wise, the test data series
+    film.data.combined <- bind_rows(select(film.data, 1), select(film.data, 1) + log.e.offset)
+    for(test.series in 1:((ncol(film.data)-1)/2)) {
+        combined.series <- data_frame(c(film.data[,2+2*(test.series-1)], film.data[,3+2*(test.series-1)]))
+        names(combined.series) <- names(film.data)[2+2*(test.series-1)]
+        film.data.combined <- bind_cols(film.data.combined, combined.series)
+    }
+    
+    film.data <- as.data.frame(film.data.combined)   # Need to coerce this way to avoid later issues with lm
+    log.e.offset <- rep(0, ncol(film.data)-1)
   }
   
   # Prepare the HD plot
   # Many thanks to Stephen Benskin from APUG and LFPP for pointing out that the X axis is rel log H and not rel log E (as was in version 0.2)
+  # p <- ggplot(data=film.data, aes(x=He), environment=environment()) + 
   p <- ggplot(data=film.data, aes(x=He), environment=environment()) + 
     coord_equal() + 
     scale_x_continuous("rel log H", breaks=seq(0,4,0.30), minor_breaks = seq(0, 4, 0.10)) + 
-    scale_y_continuous("Density", breaks=seq(0,4,0.30), minor_breaks = seq(0, 4, 0.10))
+    scale_y_continuous("Density above fb+f", breaks=seq(0,4,0.30), minor_breaks = seq(0, 4, 0.10))
   
   # Plot individual curves
   
@@ -96,11 +120,11 @@ plot.film.test <- function(film.data, # data frame as described above
     p <- p + 
       
       # Plot the points
-      geom_point(aes_string(x=rel.log.e, y=film.data[test], colour=paste('"', test.name,'"', sep=""))) + 
+      geom_point(aes_string(x=rel.log.e, y=film.data[,test], colour=paste('"', test.name,'"', sep=""))) +
 
       # Plot the smoothing line
       geom_line(data=smooth.curves, aes_string(x=paste(smooth.curves[1], "+", log.e.offset[test-1]) ,
-                                               y=smooth.curves[test], 
+                                               y=smooth.curves[,test],
                                                colour=paste('"', test.name,'"', sep="")), alpha=0.7, size=0.7)
   }
 
@@ -176,8 +200,8 @@ plot.paper.test <- function(paper.data, # data frame as described above
   
   should.print.offsets <- !is.null(log.e.offset) || equalHighlights
   
-  require(ggplot2)
-  require(splines)
+  if (!require("pacman")) install.packages("pacman")
+  pacman::p_load(ggplot2, splines)
   
   # Assume that the lowest recorded reading in each test column is PB+F, and subtract it column-wise.
   paper.data[2:ncol(paper.data)] <- as.data.frame(apply(paper.data[2:ncol(paper.data)], 2, function (x) x-min(x)))
@@ -294,7 +318,8 @@ plot.paper.test <- function(paper.data, # data frame as described above
 # Computes the Kodak-style CI Contrast Index
 contrast.index <- function(curve.model, straight.line.coeff, log.e.offset = 0) {
   
-  require(nleqslv)
+  if (!require("pacman")) install.packages("pacman")
+  pacman::p_load(nleqslv)
   
   # Estimate a good starting point for the search for the CI equation condition, as nleqslv is sensitive to starting parameters.
   # Use a straight-line regression of the curve points as a way to estimate the starting points, as it is known they have to be
