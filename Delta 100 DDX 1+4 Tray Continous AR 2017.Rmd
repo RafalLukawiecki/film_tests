@@ -1,0 +1,134 @@
+---
+title: 'Film Test: Delta 100 4×5" DDX 1+4 20˚C Tray'
+author: "Rafal Lukawiecki"
+date: "25 Oct 2017"
+output:
+  html_notebook: default
+  pdf_document: default
+  html_document:
+    df_print: paged
+header-includes: \DeclareUnicodeCharacter{2DA}{\textdegree}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Procedure
+
+Ilford Delta 100 "best before May 2015" 4x5" sheet film, which has been
+continually refrigerated at 3˚C, was removed 2 hours before the test to reach
+ambient temperature. 7 sheets of film were identically exposed using Eseco SL-2
+sensitometer, using its green light source. One half of each sheet received two
+exposures (about 0.3 s each), the other got six exposures to simulate the effect
+of a longer exposure tablet. Exposed film was then stored for about 10 minutes
+at room's ambient 20.5˚C. Development took place in steel "chafing table" food
+catering trays. They were filled, with 1 l of: water, freshly mixed Ilford
+Ilfotec DDX 1+4 developer, citric acid 1.5% stop bath, Ilford Rapid Fixer 1+4,
+water. Everything was held at 20˚C ± 0.1˚C, as measured by a calibrated lab
+thermometer.
+
+Film was inserted one sheet a time into the first water bath and agitated for 2
+minutes by hand, at which point 2 initial sheets (out of the 7 in total) started to
+be processed while the timer was set for a 22 minute countdown.
+
+Agitation was manual (by hand) using Alan Ross's technique, which involves
+removing the bottom-most sheet, by hand, and placing it on top of the stack,
+while gently pushing the stack down. Emulsion faces down. This technique can be
+slow or rapid, I have applied the rate of about 7 sheet movements per 10
+seconds, which is relatively rapid. See http://alanrossphotography.com.
+Subsequent sheets were introduced at 17, 11, 7½, 5½, and 4 minute countdown
+points. Prior to developing, those sheets continued to wait in the initial
+holding water bath.
+
+Despite finger heat transmitting to the developer, its temperature remained at 20˚C
+due to the tempering effect of the large water bath surrounding each steel dish. This
+was verified at the end of the fixation step with the thermometer.
+
+After developing, film was stopped for 2 minutes, fixed for 5, rinsed briefly,
+and washed for 10 minutes in running water, followed by Ilfotol 1+200 wetting
+agent rinse and a quick heated air dry.
+
+Densities were read on the following day using Heiland PM Densitometer TRD 2.
+There are two columns for each developing time, representing the shorter
+exposure, and the longer one, labelled "3e", equal to a triple duration of the
+first exposure. All densities are absolute, meaning that the first value, at the
+top of each shorter exposure column represents the actual film base+fog.
+This code loads the data and prints the table (may show on next page in a PDF).
+
+```{r delta100_ddx1_4_tray_2017, echo=TRUE, message=FALSE, warning=FALSE}
+library(readr)
+delta100_ddx1_4_tray_2017 <- read_csv("delta100.ddx1.4.tray.2017.csv")
+# delta100_ddx1_4_tray_2017$`22 min` <- NULL
+# delta100_ddx1_4_tray_2017$`22 min 3e` <- NULL
+```
+
+```{r results="asis"}
+library(kableExtra)
+options(knitr.table.format = "html")
+# options(knitr.table.format = "latex") # Uncomment for PDF output using TeX
+knitr::kable(delta100_ddx1_4_tray_2017, caption = "Raw density data", booktabs = T) %>% 
+  kable_styling(latex_options = c("scale_down"))
+```
+
+## Curves
+
+By trying the below code a few times, using slightly different values of
+`log.e.offset` I have estimated it at 0.4. The ideal value would be 0.45 as that
+would match the fact that the 2nd half of each sheet received triple of the
+original exposure, that is an additional 1½ f-stops, and each stop equals 0.3
+log~H~. However, this match would align the centre of the curves perfectly, but
+not the toe or shoulder, because of a very slight reciprocity failure which
+affects that longer (6 x 0.3 sec) exposure. This can be seen as an underexposure
+of about 0.04-0.05 in the resulting densities at the toe of the curve, and an
+overexposure of about the same towards Zone IX part of the curve. Ideally, a
+sensitometer with a longer step tablet would be more appropriate, while
+maintaining shorter exposures.
+
+```{r message=FALSE, warning=FALSE, fig.width = 6, fig.height = 4.5}
+source("plots.R")
+plot.film.test(delta100_ddx1_4_tray_2017, 
+               title = "Delta 100 4x5 DDX 1+4 20˚C Tray Continuous AR",
+               sensitometry = "Exposure\nEseco SL-2\nGreen x2 x6",
+               log.e.offset=0.4, df=6, combined.pairwise.plot = TRUE)
+```
+
+## Model improvement: Removing the 22 min curve
+
+It seems that the reciprocity failure affects the 22 min curve the most, which
+leads to a curvature of what should be a linear development time chart. Since 22
+minutes is an excessive development time and an unlikely one to be of use with
+this film (unless N+3 development was needed), a cleaner set of curves results
+from a smaller data set, which excludes those last two columns (column 12 and
+13) representing the 22 minute sheet. The `log.e.offset` parameter can now be
+increased to its theoretical value of 0.45 which makes the curve plot cleaner,
+without affecting the results at all.
+
+```{r message=FALSE, warning=FALSE, fig.width = 6, fig.height = 4.5}
+plot.film.test(delta100_ddx1_4_tray_2017[-c(12:13)],   # Exclude the last 2 columns
+               title = "Delta 100 4x5 DDX 1+4 20˚C Tray Continuous AR",
+               sensitometry = "Exposure\nEseco SL-2\nGreen x2 x6",
+               log.e.offset=0.45, df=6, combined.pairwise.plot = TRUE)
+```
+
+## Conclusion: Film Development Times
+
+The appropriate development times for Ilford Delta 100 4x5" in Ilford Ilfotec
+DDX 1+4 at 20˚C using trays with manual agitation (Alan Ross agitation
+technique) based on the above plots are:
+
+|N-2|N-1|N|N+1|N+2|
+|:--|:--|:--|:--|:--|
+|Not recommended|5 min|**6 min 30 s**|9 min|12 min 30 s|
+
+## More information
+
+The code used to generate this report is in the script file `plot.R` which is
+available free of charge from Rafal Lukawiecki's GitHub page, see:
+https://github.com/RafalLukawiecki/film_tests where you will also find links to
+forum discussion and credits.
+
+You can reach Rafal at raf@rafal.net and you can see photos that benefited from
+this code at <http://rafal.net>
+
+*RL*

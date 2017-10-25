@@ -16,6 +16,8 @@
 # Version 0.3 2014-05-18, Paper plotting added, corrected film plot labels.
 # Version 0.4 2016-08-22, ggplot bug fixed, added combined film plotting (combines two test series, one with and one without an offset into one).
 # Version 0.6 2017-10-24, Updated to use pacman to install package dependencies. README and sample plots added.
+# Version 0.7 2017-10-25, Fixed dev time plot issue caused by dev times that contained a fraction of a minute in their label.
+#                         Added a demo R Markdown document showing how to use this script and additional data in a CSV.
 
 # **** START HERE:
 # Currently, the film CI calculation algorithm fails if it starts the search for a solution at a "wrong" starting point.
@@ -59,7 +61,7 @@ plot.film.test <- function(film.data, # data frame as described above
   {  
   
   if (!require("pacman")) install.packages("pacman")
-  pacman::p_load(ggplot2, splines, dplyr, nleqslv)
+  pacman::p_load(stringr, ggplot2, splines, dplyr, nleqslv)
   
   # Assume that the lowest recorded reading in each column is FB+F, and subtract it column-wise, (He column should start at 0)
   film.data <- as.data.frame(apply(film.data, 2, function (x) x-min(x[1])))
@@ -136,7 +138,7 @@ plot.film.test <- function(film.data, # data frame as described above
   
   # If the columns represent development times, prepare a data frame of those times and corresponding CIs for a CI/dev plot.
   # If the titles cannot be parsed as having numerical meaning, print a warning, and plot nothing.
-  dev.time <- sapply(names(film.data)[-1], function (x) as.numeric(unlist(strsplit(x, "[ \\.X\\-]"))[1]))
+  dev.time <- sapply(names(film.data)[-1], function (x) as.numeric(unlist(str_extract(x, "\\d+[.,]?\\d*"))[1]))
   if(length(dev.time) > 2) {
     if(any(is.na(dev.time)))
       print("Cannot extract development times from column names to generate a CI/Dev plot. Rename all your columns so they start with a number of development minutes, e.g. '7 min'")
@@ -153,6 +155,7 @@ plot.film.test <- function(film.data, # data frame as described above
                  label=paste(c('N-2', 'N-1', 'N', 'N+1', 'N+2'), "(CI", target.N.CIs, ")"), size=3) +
         ggtitle(paste(title, "Development Time/CI Chart", sep="\n"))
         print(dp)
+        cat("\n\n")
     }
   }
   
