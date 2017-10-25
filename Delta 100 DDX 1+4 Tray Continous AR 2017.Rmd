@@ -3,10 +3,10 @@ title: 'Film Test: Delta 100 4×5" DDX 1+4 20˚C Tray'
 author: "Rafal Lukawiecki"
 date: "25 Oct 2017"
 output:
-  html_notebook: default
   pdf_document: default
   html_document:
     df_print: paged
+  html_notebook: default
 header-includes: \DeclareUnicodeCharacter{2DA}{\textdegree}
 ---
 
@@ -59,8 +59,6 @@ This code loads the data and prints the table (may show on next page in a PDF).
 ```{r delta100_ddx1_4_tray_2017, echo=TRUE, message=FALSE, warning=FALSE}
 library(readr)
 delta100_ddx1_4_tray_2017 <- read_csv("delta100.ddx1.4.tray.2017.csv")
-# delta100_ddx1_4_tray_2017$`22 min` <- NULL
-# delta100_ddx1_4_tray_2017$`22 min 3e` <- NULL
 ```
 
 ```{r results="asis"}
