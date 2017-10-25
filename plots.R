@@ -151,7 +151,7 @@ plot.film.test <- function(film.data, # data frame as described above
         geom_point() + 
         stat_smooth(method="lm", formula=y~poly(x,dev.time.smoothing), se=F) +
         geom_hline(yintercept=target.N.CIs, alpha=0.6, colour="blue", linetype="dashed") + 
-        annotate("text", x=max(dev.time), y=target.N.CIs + 0.02, 
+        annotate("text", x=0.95*max(dev.time), y=target.N.CIs + 0.02, 
                  label=paste(c('N-2', 'N-1', 'N', 'N+1', 'N+2'), "(CI", target.N.CIs, ")"), size=3) +
         ggtitle(paste(title, "Development Time/CI Chart", sep="\n"))
         print(dp)

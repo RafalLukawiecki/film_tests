@@ -4,9 +4,9 @@ author: "Rafal Lukawiecki"
 date: "25 Oct 2017"
 output:
   pdf_document: default
+  html_notebook: default
   html_document:
     df_print: paged
-  html_notebook: default
 header-includes: \DeclareUnicodeCharacter{2DA}{\textdegree}
 ---
 
@@ -54,7 +54,7 @@ There are two columns for each developing time, representing the shorter
 exposure, and the longer one, labelled "3e", equal to a triple duration of the
 first exposure. All densities are absolute, meaning that the first value, at the
 top of each shorter exposure column represents the actual film base+fog.
-This code loads the data and prints the table (may show on next page in a PDF).
+This code loads the data and prints the table (may show on the next page in a PDF).
 
 ```{r delta100_ddx1_4_tray_2017, echo=TRUE, message=FALSE, warning=FALSE}
 library(readr)
@@ -69,6 +69,13 @@ knitr::kable(delta100_ddx1_4_tray_2017, caption = "Raw density data", booktabs =
   kable_styling(latex_options = c("scale_down"))
 ```
 
+I have some concern about the quality of the column labelled "4 min 3e" which
+seems to show slightly higher (by 0.03) first few readings than expected.
+However, that column has only a minor effect on the results, which are primarily
+driven by the first column "4 min". The "3e" column has a smoothing effect and
+it provides data for the final 3 points of that curve, only. Once I recheck the
+data I will update the findings if there is any impact.
+
 ## Curves
 
 By trying the below code a few times, using slightly different values of
@@ -78,7 +85,7 @@ original exposure, that is an additional 1½ f-stops, and each stop equals 0.3
 log~H~. However, this match would align the centre of the curves perfectly, but
 not the toe or shoulder, because of a very slight reciprocity failure which
 affects that longer (6 x 0.3 sec) exposure. This can be seen as an underexposure
-of about 0.04-0.05 in the resulting densities at the toe of the curve, and an
+of about 0.04—0.05 in the resulting densities at the toe of the curve, and an
 overexposure of about the same towards Zone IX part of the curve. Ideally, a
 sensitometer with a longer step tablet would be more appropriate, while
 maintaining shorter exposures.
